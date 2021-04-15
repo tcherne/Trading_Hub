@@ -1,0 +1,13 @@
+1. ETF Holdings
+    a. modular download data, cronned
+    b. general analysis script
+2. Twint sentiment analysis 
+    a. pass in increase/decrease holdings
+    b. monitor sentiment analysis on these holdings
+3. Government Contracts
+    a. get recent contracts
+4. Download stock data
+    a. generate features on tech analysis
+    b. pca decomposition on them
+    c. create new models 
+5. Backtester
