@@ -1,15 +1,14 @@
+
 #!/usr/bin/env python
-# coding: utf-8
 
-
-import requests, cloudscraper
+import os, sys, datetime, json, logging, requests, cloudscraper, chromedriver_autoinstaller, argparse
 import pandas as pd
 import numpy as np
+
 from io import StringIO
-
-
-# In[ ]:
-
+from pathlib import Path
+from seleniumwire import webdriver
+from selenium.webdriver.chrome.options import Options
 
 def ark_links():
     urls = ['https://ark-funds.com/wp-content/fundsiteliterature/csv/ARK_INNOVATION_ETF_ARKK_HOLDINGS.csv',
@@ -21,10 +20,6 @@ def ark_links():
         'https://ark-funds.com/wp-content/fundsiteliterature/csv/THE_3D_PRINTING_ETF_PRNT_HOLDINGS.csv',
         'https://ark-funds.com/wp-content/fundsiteliterature/csv/ARK_ISRAEL_INNOVATIVE_TECHNOLOGY_ETF_IZRL_HOLDINGS.csv']
     return urls
-
-
-# In[ ]:
-
 
 def globalx_links():
     urls = ['https://www.globalxetfs.com/funds/lit/?download_full_holdings=true',
@@ -108,13 +103,8 @@ def globalx_links():
         'https://www.globalxetfs.com/funds/chiu/?download_full_holdings=true',
         'https://www.globalxetfs.com/funds/aqwa/?download_full_holdings=true']
     return urls
-    
 
-
-# In[ ]:
-
-
-def investco_links():
+def invesco_links():
     urls = ['https://www.invesco.com/us/financial-products/etfs/holdings/main/holdings/0?audienceType=Investor&action=download&ticker=QQQ',
         'https://www.invesco.com/us/financial-products/etfs/holdings/main/holdings/0?audienceType=Investor&action=download&ticker=RSP',
         'https://www.invesco.com/us/financial-products/etfs/holdings/main/holdings/0?audienceType=Investor&action=download&ticker=SPLV',
@@ -344,48 +334,44 @@ def investco_links():
         'https://www.invesco.com/us/financial-products/etfs/holdings/main/holdings/0?audienceType=Investor&action=download&ticker=IVSG']
     return urls
 
-
-# In[ ]:
-
-
 def ishares_links():
-    funds = ["aaxj", "acwf", "acwi", "acwv", "acwx", "agg", "agt", "agz", "aia", "amca", 
-        "aoa", "aok", "aom", "aor", "bftr", "bgrn", "bkf", "bmed", "btek", "byld", "ccrv", 
-        "cemb", "cmbs", "cmdy", "cmf", "cnya", "comt", "crbn", "defa", "dgro", "divb", 
-        "dmxf", "dsi", "dvy", "dvya", "dvye", "dynf", "eagg", "eaoa", "eaok", "eaom", 
-        "eaor", "ech", "ecns", "eden", "eem", "eema", "eems", "eemv", "efa", "efav", 
-        "efg", "efnl", "efv", "eido", "eirl", "eis", "emb", "embh", "emgf", "emhy", 
-        "emif", "emxc", "emxf", "enor", "enzl", "ephe", "epol", "epp", "epu", "erus", 
-        "esgd", "esge", "esgu", "esml", "eufn", "eusa", "eusb", "ewa", "ewc", "ewd", 
-        "ewg", "ewgs", "ewh", "ewi", "ewj", "ewje", "ewjv", "ewk", "ewl", "ewm", "ewn", 
-        "ewo", "ewp", "ewq", "ews", "ewt", "ewu", "ewus", "eww", "ewy", "ewz", "ewzs", 
-        "exi", "eza", "ezu", "faln", "fibr", "fill", "flot", "fm", "fovl", "fxi", "gbf", 
-        "ghyg", "gnma", "govt", "govz", "gsg", "gvi", "hawx", "hdv", "heem", "hefa", 
-        "hewc", "hewg", "hewj", "hewu", "heww", "hezu", "hjpx", "hscz", "hybb", "hydb", 
-        "hyg", "hygh", "hyxf", "hyxu", "iagg", "iai", "iak", "iat", "iauf", "ibb", "ibce", 
-        "ibdd", "ibdm", "ibdn", "ibdo", "ibdp", "ibdq", "ibdr", "ibds", "ibdt", "ibdu", 
-        "ibdv", "ibha", "ibhb", "ibhc", "ibhd", "ibhe", "ibhf", "ibmj", "ibmk", "ibml", 
-        "ibmm", "ibmn", "ibmo", "ibmp", "ibmq", "ibta", "ibtb", "ibtd", "ibte", "ibtf", 
-        "ibtg", "ibth", "ibti", "ibtj", "ibtk", "icf", "icln", "icol", "icsh", "icvt", 
-        "idev", "idna", "idrv", "idu", "idv", "iecs", "iedi", "ief", "iefa", "iefn", 
-        "iehs", "iei", "ieih", "ieme", "iemg", "ieo", "ietc", "ieur", "ieus", "iev", 
-        "iez", "ifgl", "ifra", "igbh", "ige", "igeb", "igf", "igib", "iglb", "igm", 
-        "ign", "igov", "igro", "igsb", "igv", "ihak", "ihe", "ihf", "ihi", "ijh", "ijj", 
-        "ijk", "ijr", "ijs", "ijt", "ilf", "iltb", "imtb", "imtm", "inda", "indy", "intf", 
-        "ioo", "ipac", "ipff", "iqlt", "irbo", "iscf", "ishg", "istb", "isze", "ita", "itb", 
-        "itot", "iusb", "iusg", "iusv", "ive", "ivlu", "ivv", "ivw", "iwb", "iwc", "iwd", 
-        "iwf", "iwfh", "iwl", "iwm", "iwn", "iwo", "iwp", "iwr", "iws", "iwv", "iwx", "iwy", 
-        "ixc", "ixg", "ixj", "ixn", "ixp", "ixus", "iyc", "iye", "iyf", "iyg", "iyh", "iyj", 
-        "iyk", "iyld", "iym", "iyr", "iyt", "iyw", "iyy", "iyz", "jkd", "jke", "jkf", "jkg", 
-        "jkh", "jki", "jkj", "jkk", "jkl", "jpxn", "jxi", "ksa", "kwt", "kxi", "ldem", 
-        "lemb", "lqd", "lqdh", "lqdi", "lrgf", "mbb", "mchi", "mear", "midf", "mtum", 
-        "mub", "mxi", "near", "nyf", "oef", "pff", "pick", "qat", "qlta", "qual", "reet", 
-        "rem", "rez", "ring", "rxi", "scj", "scz", "sdg", "sgov", "shv", "shy", "shyg", 
-        "size", "slqd", "slvp", "smin", "smlf", "smmd", "smmv", "soxx", "stip", "stlc", 
-        "stlg", "stlv", "stmb", "stsb", "sub", "susa", "susb", "susc", "susl", "sval", 
-        "tecb", "tflo", "thd", "tip", "tlh", "tlt", "tok", "tur", "uae", "urth", "ushy", 
+    funds = ["aaxj", "acwf", "acwi", "acwv", "acwx", "agg", "agt", "agz", "aia", "amca",
+        "aoa", "aok", "aom", "aor", "bftr", "bgrn", "bkf", "bmed", "btek", "byld", "ccrv",
+        "cemb", "cmbs", "cmdy", "cmf", "cnya", "comt", "crbn", "defa", "dgro", "divb",
+        "dmxf", "dsi", "dvy", "dvya", "dvye", "dynf", "eagg", "eaoa", "eaok", "eaom",
+        "eaor", "ech", "ecns", "eden", "eem", "eema", "eems", "eemv", "efa", "efav",
+        "efg", "efnl", "efv", "eido", "eirl", "eis", "emb", "embh", "emgf", "emhy",
+        "emif", "emxc", "emxf", "enor", "enzl", "ephe", "epol", "epp", "epu", "erus",
+        "esgd", "esge", "esgu", "esml", "eufn", "eusa", "eusb", "ewa", "ewc", "ewd",
+        "ewg", "ewgs", "ewh", "ewi", "ewj", "ewje", "ewjv", "ewk", "ewl", "ewm", "ewn",
+        "ewo", "ewp", "ewq", "ews", "ewt", "ewu", "ewus", "eww", "ewy", "ewz", "ewzs",
+        "exi", "eza", "ezu", "faln", "fibr", "fill", "flot", "fm", "fovl", "fxi", "gbf",
+        "ghyg", "gnma", "govt", "govz", "gsg", "gvi", "hawx", "hdv", "heem", "hefa",
+        "hewc", "hewg", "hewj", "hewu", "heww", "hezu", "hjpx", "hscz", "hybb", "hydb",
+        "hyg", "hygh", "hyxf", "hyxu", "iagg", "iai", "iak", "iat", "iauf", "ibb", "ibce",
+        "ibdd", "ibdm", "ibdn", "ibdo", "ibdp", "ibdq", "ibdr", "ibds", "ibdt", "ibdu",
+        "ibdv", "ibha", "ibhb", "ibhc", "ibhd", "ibhe", "ibhf", "ibmj", "ibmk", "ibml",
+        "ibmm", "ibmn", "ibmo", "ibmp", "ibmq", "ibta", "ibtb", "ibtd", "ibte", "ibtf",
+        "ibtg", "ibth", "ibti", "ibtj", "ibtk", "icf", "icln", "icol", "icsh", "icvt",
+        "idev", "idna", "idrv", "idu", "idv", "iecs", "iedi", "ief", "iefa", "iefn",
+        "iehs", "iei", "ieih", "ieme", "iemg", "ieo", "ietc", "ieur", "ieus", "iev",
+        "iez", "ifgl", "ifra", "igbh", "ige", "igeb", "igf", "igib", "iglb", "igm",
+        "ign", "igov", "igro", "igsb", "igv", "ihak", "ihe", "ihf", "ihi", "ijh", "ijj",
+        "ijk", "ijr", "ijs", "ijt", "ilf", "iltb", "imtb", "imtm", "inda", "indy", "intf",
+        "ioo", "ipac", "ipff", "iqlt", "irbo", "iscf", "ishg", "istb", "isze", "ita", "itb",
+        "itot", "iusb", "iusg", "iusv", "ive", "ivlu", "ivv", "ivw", "iwb", "iwc", "iwd",
+        "iwf", "iwfh", "iwl", "iwm", "iwn", "iwo", "iwp", "iwr", "iws", "iwv", "iwx", "iwy",
+        "ixc", "ixg", "ixj", "ixn", "ixp", "ixus", "iyc", "iye", "iyf", "iyg", "iyh", "iyj",
+        "iyk", "iyld", "iym", "iyr", "iyt", "iyw", "iyy", "iyz", "jkd", "jke", "jkf", "jkg",
+        "jkh", "jki", "jkj", "jkk", "jkl", "jpxn", "jxi", "ksa", "kwt", "kxi", "ldem",
+        "lemb", "lqd", "lqdh", "lqdi", "lrgf", "mbb", "mchi", "mear", "midf", "mtum",
+        "mub", "mxi", "near", "nyf", "oef", "pff", "pick", "qat", "qlta", "qual", "reet",
+        "rem", "rez", "ring", "rxi", "scj", "scz", "sdg", "sgov", "shv", "shy", "shyg",
+        "size", "slqd", "slvp", "smin", "smlf", "smmd", "smmv", "soxx", "stip", "stlc",
+        "stlg", "stlv", "stmb", "stsb", "sub", "susa", "susb", "susc", "susl", "sval",
+        "tecb", "tflo", "thd", "tip", "tlh", "tlt", "tok", "tur", "uae", "urth", "ushy",
         "usig", "usmv", "usrt", "usxf", "vegi", "vlue", "wood", "wps", "xjh", "xjr", "xt", "xvv"]
-        
+
     funds_basepaths = {
         "aaxj": "/239601/ishares-msci-all-country-asia-ex-japan-etf/1467271812596.ajax",
         "acwf": "/272821/ishares-msci-global-multi-factor-etf/1467271812596.ajax",
@@ -775,21 +761,9 @@ def ishares_links():
         urls.append(url)
     return urls
 
-
-# In[11]:
-
-
 def download_vanguard(csv_format):
-    import json, logging
-    import chromedriver_autoinstaller
-    import pandas as pd
-    from pathlib import Path
-    from seleniumwire import webdriver
-    from selenium.webdriver.chrome.options import Options
-
-# The Vanguard adapter navigates to the Vanguard's website page for the ETF and uses
-# selenium-wire waits up on a request call to their API which returns the fund list
-
+    # The Vanguard adapter navigates to the Vanguard's website page for the ETF and uses
+    # selenium-wire waits up on a request call to their API which returns the fund list
     def get_chromedriver(headless=False):
         chromedriver_path = chromedriver_autoinstaller.install()
         logs_path = Path.cwd() / ".logs" / "webdrive.log"
@@ -830,7 +804,7 @@ def download_vanguard(csv_format):
         df = pd.DataFrame(holdings)
         return df
 
-    funds = [ "VIG", "ESGV", "VUG", "VYM", "VV", "MGC", 
+    funds = [ "VIG", "ESGV", "VUG", "VYM", "VV", "MGC",
         "MGK", "MGV", "VONE", "VONG", "VONV", "VTHR", "VOO", "VOOG", "VOOV", "VTI", "VTV", "VXF", "VO", "VOT", "VOE", "IVOO", "IVOG", "IVOV", "VTWO", "VTWG", "VTWV", "VIOO",
         "VIOG", "VIOV", "VB", "VBK", "VBR", "BNDW", "BNDX", "VWOB", "VT", "VSGX", "VEU", "VSS", "VEA",
         "VGK", "VPL", "VNQI", "VIGI", "VYMI", "VXUS", "VWO", "VOX", "VCR", "VDC", "VDE", "VFH", "VHT", "VIS", "VGT",
@@ -838,7 +812,7 @@ def download_vanguard(csv_format):
         "VOOG", "VOOV", "VTI", "VTV", "VXF", "VO", "VOT", "VOE", "IVOO", "IVOG", "IVOV", "VTWO", "VTWG", "VTWV", "VIOO", "VIOG",
         "VIOV", "VB", "VBK", "VBR", "VT", "VSGX", "VEU", "VSS", "VEA", "VGK", "VPL", "VNQI",
         "VIGI", "VYMI", "VXUS", "VWO", "VOX", "VCR", "VDC", "VDE", "VFH", "VHT", "VIS", "VGT", "VAW", "VNQ", "VPU"]
-    
+    df_result = pd.DataFrame()
     for fund in funds:
         try:
             df = fetch(fund)
@@ -852,146 +826,156 @@ def download_vanguard(csv_format):
             df.set_index('ticker', inplace=True)
             df['provider'] = csv_format
             df = df[['company', 'weight', 'market_value', 'shares', 'provider']]
-            display(df.head())
-
-            display(df.head())
+            if df_result.shape[0] == 0:
+                df_result = df
+            else:
+                df_result = df_result.append(df)
         except:
             print('Error: ' + fund)
+    write_csv(df_result, csv_format)
 
+def clean_ark(text, csv_format):
+    try:
+        df = pd.read_csv(text)
+        df.rename(columns = {'ticker':'ticker',
+                             'company':'company',
+                             'weight(%)':'weight',
+                             'market value($)':'market_value',
+                             'shares':'shares',
+                            }, inplace = True)
+        df['price'] = df['market_value']/df['shares']
+        df.set_index('ticker', inplace=True)
+        df['provider'] = csv_format
+        df = df[['company', 'weight', 'market_value', 'shares', 'provider']]
+        return df
+    except:
+        print('Error: ' + csv_format)
 
-# In[ ]:
+def clean_globalx(text, csv_format):
+    try:
+        df = pd.read_csv(text, header=2)
+        df.rename(columns = {'Ticker':'ticker',
+                         'Name':'company',
+                         '% of Net Assets':'weight',
+                         'Market Value ($)':'market_value',
+                         'Shares Held':'shares',
+                        }, inplace = True)
+        df['market_value'] = pd.to_numeric(df['market_value'].str.replace(',',''))
+        df['shares'] = pd.to_numeric(df['shares'].str.replace(',',''))
+        df['price'] = df['market_value']/df['shares']
+        df.set_index('ticker', inplace=True)
+        df['provider'] = csv_format
+        df = df[['company', 'weight', 'market_value', 'shares', 'provider']]
+        return df
+    except:
+        print('Error: ' + csv_format)
 
+def clean_ishares(text, csv_format):
+    try:
+        df = pd.read_csv(text, header=9)
+        df.rename(columns = {'Ticker':'ticker',
+                     'Name':'company',
+                     'Weight (%)':'weight',
+                     'Market Value':'market_value',
+                     'Shares':'shares',
+                    }, inplace = True)
+        df['market_value'] = pd.to_numeric(df['market_value'].str.replace(',',''))
+        df['shares'] = pd.to_numeric(df['shares'].str.replace(',',''))
+        df['price'] = df['market_value']/df['shares']
+        df.set_index('ticker', inplace=True)
+        df['provider'] = csv_format
+        df = df[['company', 'weight', 'market_value', 'shares', 'provider']]
+        return df
+    except:
+        print('Error: ' + csv_format)
+
+def clean_invesco(text, csv_format):
+    try:
+        df = pd.read_csv(text)
+        df.rename(columns = {'Holding Ticker':'ticker',
+                     'Name':'company',
+                     'Weight':'weight',
+                     'MarketValue':'market_value',
+                     'Shares/Par Value':'shares',
+                    }, inplace = True)
+        print(df.shape)
+        df['market_value'] = pd.to_numeric(df['market_value'].str.replace(',',''))
+        df['shares'] = pd.to_numeric(df['shares'].str.replace(',',''))
+        df['price'] = df['market_value']/df['shares']
+        df.set_index('ticker', inplace=True)
+        df['provider'] = csv_format
+        df = df[['company', 'weight', 'market_value', 'shares', 'provider']]
+        return df
+    except:
+        print('Error: ' + csv_format)
 
 def download_csv(urls, csv_format):
+    df_result = pd.DataFrame()
     for url in urls:
         scraper = cloudscraper.create_scraper()
         with requests.get(url, stream=True) as r:
             text = StringIO(scraper.get(url).text)
             if csv_format == 'ark':
-                clean_ark(text, csv_format)
+                df_temp = clean_ark(text, csv_format)
+                if df_result.shape[0] == 0:
+                    df_result = df_temp
+                else:
+                    df_result = df_result.append(df_temp)
             elif csv_format == 'globalx':
-                clean_globalx(text, csv_format)
+                df_temp = clean_globalx(text, csv_format)
+                if df_result.shape[0] == 0:
+                    df_result = df_temp
+                else:
+                    df_result = df_result.append(df_temp)
             elif csv_format == 'ishares':
-                clean_ishares(text, csv_format)
+                df_temp = clean_ishares(text, csv_format)
+                if df_result.shape[0] == 0:
+                    df_result = df_temp
+                else:
+                    df_result = df_result.append(df_temp)
             elif csv_format == 'invesco':
-                clean_invesco(text, csv_format)
+                df_temp = clean_invesco(text, csv_format)
+                if df_result.shape[0] == 0:
+                    df_result = df_temp
+                else:
+                    df_result = df_result.append(df_temp)
             else:
                 print('Warning: ', csv_format + ' is not valid.')
+    write_csv(df_result, csv_format)
 
+def write_csv(df, csv_format):
+    today = datetime.datetime.now().strftime('%Y%m%d')
+    directory_path = '/'.join(["/home/timcherne/Data", csv_format])
+    filename = '/'.join([directory_path, today])
+    print('Writing: ', filename)
+    df.to_csv(filename)
 
-# In[ ]:
+def get_arg_parser():
+  parser = argparse.ArgumentParser()
+  return parser
 
+def main(args):
+    urls_ark = ark_links()
+    urls_globalx = globalx_links()
+    urls_invesco = invesco_links()
+    urls_ishares = ishares_links()
 
-def clean_ark(text, csv_format):
-    df = pd.read_csv(text)
-    df.rename(columns = {'ticker':'ticker',
-                         'company':'company',
-                         'weight(%)':'weight',
-                         'market value($)':'market_value',
-                         'shares':'shares',
-                        }, inplace = True)
-    df.drop(['date', 'fund', 'cusip'], axis=1, inplace=True)
-    df['price'] = df['market_value']/df['shares']
-    df.set_index('ticker', inplace=True)
-    df['provider'] = csv_format
-    df = df[['company', 'weight', 'market_value', 'shares', 'provider']]
-    display(df.head())
+    csv_format = 'ark'
+    download_csv(urls_ark, csv_format)
 
+    csv_format = 'globalx'
+    download_csv(urls_globalx, csv_format)
 
-# In[ ]:
+    csv_format = 'invesco'
+    download_csv(urls_invesco, csv_format)
 
+    csv_format = 'ishares'
+    download_csv(urls_ishares, csv_format)
 
-def clean_globalx(text, csv_format):
-    df = pd.read_csv(text, header=2)
-    df.rename(columns = {'Ticker':'ticker',
-                     'Name':'company',
-                     '% of Net Assets':'weight',
-                     'Market Value ($)':'market_value',
-                     'Shares Held':'shares',
-                    }, inplace = True)
-    df.drop(['SEDOL', 'Market Price ($)'], axis=1, inplace=True)
-    df['market_value'] = pd.to_numeric(df['market_value'].str.replace(',',''))
-    df['shares'] = pd.to_numeric(df['shares'].str.replace(',',''))
-    df['price'] = df['market_value']/df['shares']
-    df.set_index('ticker', inplace=True)
-    df['provider'] = csv_format
-    df = df[['company', 'weight', 'market_value', 'shares', 'provider']]
-    display(df.head())
+    # vanguard runs on some different code,
+    # urls_.. and download are in download_vanguard
+    csv_format = 'vanguard'
+    download_vanguard(csv_format)
 
-
-# In[ ]:
-
-
-def clean_ishares(text, csv_format):
-    df = pd.read_csv(text, header=9)
-    display(df.head())
-    df.rename(columns = {'Ticker':'ticker',
-                 'Name':'company',
-                 'Weight (%)':'weight',
-                 'Market Value':'market_value',
-                 'Shares':'shares',
-                }, inplace = True)
-    df.drop(['Sector', 'Asset Class', 'Notional Value', 'CUSIP', 'ISIN', 'SEDOL', 'Price', 'Location', 'Exchange', 'Currency', 'FX Rate', 'Market Currency', 'Accrual Date'], axis=1, inplace=True)
-    df['market_value'] = pd.to_numeric(df['market_value'].str.replace(',',''))
-    df['shares'] = pd.to_numeric(df['shares'].str.replace(',',''))
-    df['price'] = df['market_value']/df['shares']
-    df.set_index('ticker', inplace=True)   
-    df['provider'] = csv_format
-    df = df[['company', 'weight', 'market_value', 'shares', 'provider']]
-    display(df.head())
-
-
-# In[ ]:
-
-
-def clean_invesco(text, csv_format):
-    df = pd.read_csv(text)
-    df.rename(columns = {'Holding Ticker':'ticker',
-                 'Name':'company',
-                 'Weight':'weight',
-                 'MarketValue':'market_value',
-                 'Shares/Par Value':'shares',
-                }, inplace = True)
-    df.drop(['Fund Ticker', 'Security Identifier', 'Class of Shares', 'Date'], axis=1, inplace=True)
-    df['market_value'] = pd.to_numeric(df['market_value'].str.replace(',',''))
-    df['shares'] = pd.to_numeric(df['shares'].str.replace(',',''))
-    df['price'] = df['market_value']/df['shares']
-    df.set_index('ticker', inplace=True)   
-    df['provider'] = csv_format
-    df = df[['company', 'weight', 'market_value', 'shares', 'provider']]
-    display(df.head())
-
-
-# In[ ]:
-
-
-urls_ark = ark_links()
-urls_globalx = globalx_links()
-urls_invesco = investco_links()
-urls_ishares = ishares_links()
-
-csv_format = 'ark'
-download_csv(urls_ark, csv_format)
-csv_format = 'globalx'
-download_csv(urls_globalx, csv_format)
-csv_format = 'invesco'
-download_csv(urls_invesco, csv_format)
-csv_format = 'ishares'
-download_csv(urls_ishares, csv_format)
-## vanguard runs on some different code, 
-## urls_.. and download are in download_vanguard
-csv_format = 'vanguard'
-download_vanguard(csv_format)
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
+if __name__ == "__main__":
+  main(get_arg_parser().parse_args())
