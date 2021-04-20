@@ -972,8 +972,8 @@ def main(args):
 
   # vanguard runs on some different code,
   # urls_.. and download are in download_vanguard
-  csv_format = 'vanguard'
-  download_vanguard(csv_format)
+  # csv_format = 'vanguard'
+  # download_vanguard(csv_format)
 
 if __name__ == "__main__":
   main(get_arg_parser().parse_args())
