@@ -12,3 +12,20 @@
     c. create new models 
 5. Backtester
     a. focused on models generation?
+
+
+
+
+Modular Layers
+DataManager :- This layer is responsible for interfacing with hypc and hyps books and creating a common interface for the rest of alphanso to view.
+InstRecord :- InstRecord is short for InstrumentRecord. An Instrument (alternately called a TradeUnit i.e. Tradeable Unit) Record maintains an interface to the underlying books, receives updates from DataManager pertaining to that TradeUnit and computes various pricing models. These pricing models are computed here rather than in specific variables because the location of the code is close to that of the books.
+TradeUnit is a also a new concept introduced that is different from the older hypc code-base. A TradeUnit is just a tuple of <cid, mm> wherein cid refers to a unique integer for the symbol and mm refers to the exchange on which it is trading. The idea is that any ticker whose books on different exchanges can be merged directly and still make sense will have only one cid and the mm will be used to identify the exchange we are talking about.
+Portfolio :- A Portfolio represents a combination of TradeUnits that is an actual position that you can take on. Hence, it could be any of Singleton, Sum(i.e. LinearCombination), Multiplicative, Expression, MultiMM etc. While the hope is to eventually have strategies trading on portfolios with the corresponding positions being taken automatically, currently only SingletonPortfolios are tradeable. So the concept of a portfolio is that it just represents one single "price" that represents the portfolio which can be used in variables.
+Sampler :- A variety of sampling methods that will be used to send updates to variables/varaggregators and so on and so forth. e.g., Time, Events, Portfolio Events, Significant Events, Ticks etc.
+Variable :- A variable is just a value at some point of time. This could be the SMA of price over the last 10 seconds and so on.
+FutureVariable :- A special type of variable whose value at a given time depends on the future from that time.
+Dependant :- A special type of FutureVariable whose value is the return earned by a security over a future period of time.
+Regression :- This class synchronizes that values of variables and futurevariables at a given instant of time (the time instant being given by the regression's print sampler) and outputs this to a data file.
+VarAggregator :- Most of our simulations use a linear combination of variables as an underlying model. The VarAggregator performs the functionality of linearly combining a bunch of variables and passing this along to the simulation after some minor processing.
+SignalSwitcher :- This is used to switch models (i.e. VarAggregators) that a particular simulation is listening to. This is useful if we want to switch on the basis of time (e.g., a particular security's data might become available only after a certain time of day) or on the basis of price (e.g., the at-the-money option needs to be switched on the basis of the price of the underlying).
+Simulation :- This should get called as infrequently as possible and basically takes the signal from the VarAggregator and uses it to form decisions on when and what types of orders to place/cancel and so on.
