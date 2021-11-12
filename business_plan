@@ -29,3 +29,13 @@ Regression :- This class synchronizes that values of variables and futurevariabl
 VarAggregator :- Most of our simulations use a linear combination of variables as an underlying model. The VarAggregator performs the functionality of linearly combining a bunch of variables and passing this along to the simulation after some minor processing.
 SignalSwitcher :- This is used to switch models (i.e. VarAggregators) that a particular simulation is listening to. This is useful if we want to switch on the basis of time (e.g., a particular security's data might become available only after a certain time of day) or on the basis of price (e.g., the at-the-money option needs to be switched on the basis of the price of the underlying).
 Simulation :- This should get called as infrequently as possible and basically takes the signal from the VarAggregator and uses it to form decisions on when and what types of orders to place/cancel and so on.
+
+
+
+ML Pipelin
+Generate variable list from the paramBase
+Compute predictive correlations during the in-sample days
+Pick up variables with high predictive correlation and low inter-correlation and generate models
+Combine the models and tholds and generate control files
+Simulate the controls on both in-sample and out-sample days
+Generate reports
