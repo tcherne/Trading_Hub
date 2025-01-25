@@ -1,111 +1,113 @@
+import matplotlib
+matplotlib.use('TkAgg')
 import yfinance as yf
 import pandas as pd
 import numpy as np
-# import matplotlib
-# matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 from hmmlearn import hmm
 
-# Define the tickers
-tickers = {
-    'stock': 'AAPL',  # Example stock
-    'sector': 'XLK',  # Technology sector ETF
-    'market': '^GSPC'  # S&P 500 index
-}
+# Configuration
+plt.style.use('ggplot')
+plt.rcParams['font.family'] = 'DejaVu Sans'
+np.random.seed(42)
 
-# Fetch historical data
-data = {}
-for key, ticker in tickers.items():
-    try:
-        df = yf.download(ticker, start="2020-01-01", end="2025-01-01")
-        # Use 'Adj Close' if available, otherwise use 'Close'
-        if 'Adj Close' in df.columns:
-            # Extract the 'Adj Close' column as a pandas Series
-            data[key] = df['Adj Close'].squeeze()
-        else:
-            # Extract the 'Close' column as a pandas Series
-            data[key] = df['Close'].squeeze()
-        print(f"Data for {ticker} fetched successfully.")
-    except Exception as e:
-        print(f"Error fetching data for {ticker}: {e}")
+# Ticker Configuration
+PREDICTORS = ['^VIX', 'GC=F', 'EURUSD=X', '^TNX']
+TARGET = '^GSPC'
 
-# Check if data is empty
-if not data:
-    raise ValueError("No data fetched. Check the tickers and try again.")
+def get_sp500_dates():
+    """Get S&P 500 trading days without timezone"""
+    df = yf.Ticker(TARGET).history(period="max", start="2016-01-01", end="2023-01-01")
+    dates = df.index.tz_localize(None).normalize()  # Convert to naive datetime
+    print(f"📅 S&P 500 trading days: {len(dates)}")
+    return dates
 
-# Calculate daily returns
-returns = {}
-for key, series in data.items():
-    if not series.empty:
-        # Ensure the series is a pandas Series
-        if isinstance(series, pd.Series):
-            returns[key] = series.pct_change().dropna()
-            print(f"Returns for {key} calculated successfully.")
-        else:
-            print(f"Data for {key} is not a pandas Series.")
-    else:
-        print(f"No data available for {key}.")
+def fetch_aligned_data(sp500_dates):
+    """Fetch data aligned to S&P 500 dates with validation"""
+    data = {}
+    start_date = sp500_dates[0].strftime('%Y-%m-%d')
+    end_date = sp500_dates[-1].strftime('%Y-%m-%d')
+    
+    # Fetch target
+    target = yf.Ticker(TARGET).history(start=start_date, end=end_date)
+    target.index = target.index.tz_localize(None)
+    data['TARGET'] = target['Close'].reindex(sp500_dates).ffill().bfill()
+    
+    # Fetch and align predictors
+    for ticker in PREDICTORS:
+        try:
+            df = yf.Ticker(ticker).history(start=start_date, end=end_date)
+            df.index = df.index.tz_localize(None)
+            aligned = df['Close'].reindex(sp500_dates).ffill().bfill()
+            key = f"PRED_{ticker.replace('^','').replace('=','_')}"
+            data[key] = aligned
+            print(f"✅ {key}: {aligned.notna().sum()}/{len(aligned)} valid values")
+        except Exception as e:
+            print(f"❌ Error processing {ticker}: {str(e)}")
+            raise
+    
+    combined = pd.DataFrame(data).dropna()
+    print(f"\n📊 Final dataset: {len(combined)} days")
+    return combined
 
-# Check if returns are empty
-if not returns:
-    raise ValueError("No returns calculated. Check the data and try again.")
+def main():
+    # 1. Get S&P 500 dates
+    print("\n🔍 Fetching S&P 500 calendar (2016-2023)...")
+    sp500_dates = get_sp500_dates()
+    
+    # 2. Fetch and align data
+    print("\n📥 Aligning data to S&P dates...")
+    price_df = fetch_aligned_data(sp500_dates)
+    
+    # 3. Calculate returns
+    print("\n📈 Calculating returns...")
+    returns_df = price_df.pct_change().dropna()
+    
+    # 4. Train HMM
+    print("\n🎯 Training HMM...")
+    model = hmm.GaussianHMM(
+        n_components=3,
+        covariance_type="full",
+        n_iter=1000,
+        random_state=42
+    )
+    model.fit(returns_df.filter(like='PRED_').values)
+    returns_df['Regime'] = model.predict(returns_df.filter(like='PRED_').values)
+    
+    # 5. Visualize
+    print("\n🎨 Generating visualization...")
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(16, 12), sharex=True)
+    
+    # Price plot
+    ax1.plot(price_df.index, price_df['TARGET'], color='navy', lw=1)
+    ax1.set_ylabel('S&P 500 Price')
+    ax1.grid(alpha=0.3)
+    
+    # Regime plot
+    colors = ['green', 'blue', 'red']
+    for regime in range(3):
+        mask = returns_df['Regime'] == regime
+        ax2.scatter(returns_df.index[mask], 
+                   returns_df['TARGET'][mask],
+                   color=colors[regime],
+                   s=30,
+                   label=f'Regime {regime}')
+    ax2.set_ylabel('Daily Returns')
+    ax2.legend()
+    ax2.grid(alpha=0.3)
+    
+    plt.suptitle('S&P 500 Market Regimes (2016-2023)')
+    plt.tight_layout()
+    plt.savefig('sp500_regimes.png', dpi=300)
+    plt.show()
 
-# Print the structure of returns
-print("Structure of returns dictionary:")
-for key, value in returns.items():
-    print(f"{key}: {type(value)}")
+    # 6. Statistics
+    print("\n📊 Regime Statistics:")
+    stats = returns_df.groupby('Regime').agg({
+        'TARGET': ['mean', 'std', 'count'],
+        **{col: 'mean' for col in returns_df.filter(like='PRED_').columns}
+    })
+    print(stats.to_markdown(floatfmt=".4f"))
 
-# Ensure all Series in returns have the same index
-common_index = returns[list(returns.keys())[0]].index
-for key, series in returns.items():
-    if not series.index.equals(common_index):
-        print(f"Index mismatch for {key}. Aligning indices.")
-        returns[key] = series.reindex(common_index).dropna()
-
-# Combine returns into a single DataFrame
-returns_df = pd.DataFrame(returns)
-
-# Check if the DataFrame is empty
-if returns_df.empty:
-    raise ValueError("Returns DataFrame is empty. Check the data and try again.")
-
-# Print the first few rows of the DataFrame
-print("First few rows of returns DataFrame:")
-print(returns_df.head())
-
-# Prepare the data for HMM
-X = returns_df.values
-
-# Define the HMM model
-model = hmm.GaussianHMM(n_components=3, covariance_type="full", n_iter=1000)
-
-# Fit the model
-model.fit(X)
-
-# Predict the hidden states
-hidden_states = model.predict(X)
-
-# Add hidden states to the DataFrame
-returns_df['HiddenState'] = hidden_states
-
-# Plot the results
-plt.figure(figsize=(14, 8))
-for i in range(model.n_components):
-    state = (returns_df['HiddenState'] == i)
-    plt.plot(returns_df.index[state], returns_df['market'][state], '.', label=f'State {i}')
-plt.legend()
-plt.title('Market Regimes Classified by HMM')
-plt.xlabel('Date')
-plt.ylabel('Market Returns')
-plt.show()
-
-# Calculate mean and variance for each state
-state_means = []
-state_variances = []
-for i in range(model.n_components):
-    state_means.append(returns_df[returns_df['HiddenState'] == i]['market'].mean())
-    state_variances.append(returns_df[returns_df['HiddenState'] == i]['market'].var())
-
-# Print the results
-for i in range(model.n_components):
-    print(f"State {i} - Mean: {state_means[i]}, Variance: {state_variances[i]}")
+if __name__ == "__main__":
+    main()
