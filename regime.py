@@ -3,8 +3,11 @@ matplotlib.use('TkAgg')
 import yfinance as yf
 import pandas as pd
 import numpy as np
+import time
 import matplotlib.pyplot as plt
 from hmmlearn import hmm
+from datetime import datetime, timedelta
+
 
 # Configuration
 plt.style.use('ggplot')
@@ -12,12 +15,16 @@ plt.rcParams['font.family'] = 'DejaVu Sans'
 np.random.seed(42)
 
 # Ticker Configuration
-PREDICTORS = ['^VIX', 'GC=F', 'EURUSD=X', '^TNX']
+PREDICTORS = ['^VIX', 'GC=F', 'EURUSD=X', 'JPY=X', '^TNX', 'AAPL', 'AMZN']
 TARGET = '^GSPC'
+# TARGET = '^IXIC'
 
 def get_sp500_dates():
     """Get S&P 500 trading days without timezone"""
-    df = yf.Ticker(TARGET).history(period="max", start="2016-01-01", end="2023-01-01")
+    # Calculate yesterday's date
+    end_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+    # Fetch historical data with the end date set to yesterday
+    df = yf.Ticker(TARGET).history(period="max", start="2000-01-01", end=end_date)
     dates = df.index.tz_localize(None).normalize()  # Convert to naive datetime
     print(f"📅 S&P 500 trading days: {len(dates)}")
     return dates
@@ -45,6 +52,7 @@ def fetch_aligned_data(sp500_dates):
         except Exception as e:
             print(f"❌ Error processing {ticker}: {str(e)}")
             raise
+        time.sleep(30);
     
     combined = pd.DataFrame(data).dropna()
     print(f"\n📊 Final dataset: {len(combined)} days")
@@ -52,7 +60,7 @@ def fetch_aligned_data(sp500_dates):
 
 def main():
     # 1. Get S&P 500 dates
-    print("\n🔍 Fetching S&P 500 calendar (2016-2023)...")
+    print("\n🔍 Fetching S&P 500 calendar...")
     sp500_dates = get_sp500_dates()
     
     # 2. Fetch and align data

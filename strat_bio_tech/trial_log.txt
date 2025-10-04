@@ -1,0 +1,3 @@
+2025-10-04 10:47:34.599666: Retrieved 579 trials, 1 small/micro-cap.
+2025-10-04 10:51:11.653209: Retrieved 579 trials, 0 small/micro-cap.
+2025-10-04 10:52:12.316973: Retrieved 579 trials, 1 small/micro-cap.
